@@ -1,182 +1,261 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
+const React = require('react');
+const { useTranslation } = require('react-i18next');
 const { useServices } = require('stremio/services');
-const { CONSTANTS, languageNames, useDeepEqualMemo } = require('stremio/common');
+const { CONSTANTS, interfaceLanguages, languageNames, externalPlayerOptions } = require('stremio/common');
 
 const useProfileSettingsInputs = (profile) => {
+    const { t } = useTranslation();
     const { core } = useServices();
-    const interfaceLanguageSelect = useDeepEqualMemo(() => ({
-        options: Object.keys(languageNames).map((code) => ({
-            value: code,
-            label: languageNames[code]
+    // TODO combine those useMemo in one
+    const interfaceLanguageSelect = React.useMemo(() => ({
+        options: interfaceLanguages.map(({ name, codes }) => ({
+            value: codes[0],
+            label: name,
         })),
-        selected: [profile.settings.interface_language],
-        renderLabelText: () => {
-            return typeof languageNames[profile.settings.interface_language] === 'string' ?
-                languageNames[profile.settings.interface_language]
-                :
-                profile.settings.interface_language;
-        },
+        selected: [
+            interfaceLanguages.find(({ codes }) => codes[1] === profile.settings.interfaceLanguage)?.codes?.[0] || profile.settings.interfaceLanguage
+        ],
         onSelect: (event) => {
-            core.dispatch({
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        interface_language: event.value
+                        interfaceLanguage: event.value
                     }
                 }
             });
         }
     }), [profile.settings]);
-    const subtitlesLanguageSelect = useDeepEqualMemo(() => ({
+    const subtitlesLanguageSelect = React.useMemo(() => ({
         options: Object.keys(languageNames).map((code) => ({
             value: code,
             label: languageNames[code]
         })),
-        selected: [profile.settings.subtitles_language],
-        renderLabelText: () => {
-            return typeof languageNames[profile.settings.subtitles_language] === 'string' ?
-                languageNames[profile.settings.subtitles_language]
-                :
-                profile.settings.subtitles_language;
-        },
+        selected: [profile.settings.subtitlesLanguage],
         onSelect: (event) => {
-            core.dispatch({
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        subtitles_language: event.value
+                        subtitlesLanguage: event.value
                     }
                 }
             });
         }
     }), [profile.settings]);
-    const subtitlesSizeSelect = useDeepEqualMemo(() => ({
+    const subtitlesSizeSelect = React.useMemo(() => ({
         options: CONSTANTS.SUBTITLES_SIZES.map((size) => ({
             value: `${size}`,
             label: `${size}%`
         })),
-        selected: [`${profile.settings.subtitles_size}`],
+        selected: [`${profile.settings.subtitlesSize}`],
         renderLabelText: () => {
-            return `${profile.settings.subtitles_size}%`;
+            return `${profile.settings.subtitlesSize}%`;
         },
         onSelect: (event) => {
-            core.dispatch({
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        subtitles_size: parseInt(event.value)
+                        subtitlesSize: parseInt(event.value, 10)
                     }
                 }
             });
         }
     }), [profile.settings]);
-    const subtitlesTextColorInput = useDeepEqualMemo(() => ({
-        value: profile.settings.subtitles_text_color,
+    const subtitlesTextColorInput = React.useMemo(() => ({
+        value: profile.settings.subtitlesTextColor,
         onChange: (event) => {
-            core.dispatch({
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        subtitles_text_color: event.value
+                        subtitlesTextColor: event.value
                     }
                 }
             });
         }
     }), [profile.settings]);
-    const subtitlesBackgroundColorInput = useDeepEqualMemo(() => ({
-        value: profile.settings.subtitles_background_color,
+    const subtitlesBackgroundColorInput = React.useMemo(() => ({
+        value: profile.settings.subtitlesBackgroundColor,
         onChange: (event) => {
-            core.dispatch({
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        subtitles_background_color: event.value
+                        subtitlesBackgroundColor: event.value
                     }
                 }
             });
         }
     }), [profile.settings]);
-    const subtitlesOutlineColorInput = useDeepEqualMemo(() => ({
-        value: profile.settings.subtitles_outline_color,
+    const subtitlesOutlineColorInput = React.useMemo(() => ({
+        value: profile.settings.subtitlesOutlineColor,
         onChange: (event) => {
-            core.dispatch({
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        subtitles_outline_color: event.value
+                        subtitlesOutlineColor: event.value
                     }
                 }
             });
         }
     }), [profile.settings]);
-    const bingeWatchingCheckbox = useDeepEqualMemo(() => ({
-        checked: profile.settings.binge_watching,
-        onClick: () => {
-            core.dispatch({
+    const audioLanguageSelect = React.useMemo(() => ({
+        options: Object.keys(languageNames).map((code) => ({
+            value: code,
+            label: languageNames[code]
+        })),
+        selected: [profile.settings.audioLanguage],
+        onSelect: (event) => {
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        binge_watching: !profile.settings.binge_watching
+                        audioLanguage: event.value
                     }
                 }
             });
         }
     }), [profile.settings]);
-    const playInBackgroundCheckbox = useDeepEqualMemo(() => ({
-        checked: profile.settings.play_in_background,
-        onClick: () => {
-            core.dispatch({
+    const seekTimeDurationSelect = React.useMemo(() => ({
+        options: CONSTANTS.SEEK_TIME_DURATIONS.map((size) => ({
+            value: `${size}`,
+            label: `${size / 1000} ${t('SECONDS')}`
+        })),
+        selected: [`${profile.settings.seekTimeDuration}`],
+        renderLabelText: () => {
+            return `${profile.settings.seekTimeDuration / 1000} ${t('SECONDS')}`;
+        },
+        onSelect: (event) => {
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        play_in_background: !profile.settings.play_in_background
+                        seekTimeDuration: parseInt(event.value, 10)
                     }
                 }
             });
         }
     }), [profile.settings]);
-    const playInExternalPlayerCheckbox = useDeepEqualMemo(() => ({
-        checked: profile.settings.play_in_external_player,
-        onClick: () => {
-            core.dispatch({
+    const playInExternalPlayerSelect = React.useMemo(() => ({
+        options: externalPlayerOptions.map((opt) => {
+            opt.label = t(opt.label);
+            return opt;
+        }),
+        selected: [`${profile.settings.playerType || 'internal'}`],
+        onSelect: (event) => {
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        play_in_external_player: !profile.settings.play_in_external_player
+                        playerType: event.value
                     }
                 }
             });
         }
     }), [profile.settings]);
-    const hardwareDecodingCheckbox = useDeepEqualMemo(() => ({
-        checked: profile.settings.hardware_decoding,
-        onClick: () => {
-            core.dispatch({
+    const nextVideoPopupDurationSelect = React.useMemo(() => ({
+        options: CONSTANTS.NEXT_VIDEO_POPUP_DURATIONS.map((duration) => ({
+            value: `${duration}`,
+            label: duration === 0 ? 'Disabled' : `${duration / 1000} ${t('SECONDS')}`
+        })),
+        selected: [`${profile.settings.nextVideoNotificationDuration}`],
+        renderLabelText: () => {
+            return profile.settings.nextVideoNotificationDuration === 0 ?
+                'Disabled'
+                :
+                `${profile.settings.nextVideoNotificationDuration / 1000} ${t('SECONDS')}`;
+        },
+        onSelect: (event) => {
+            core.transport.dispatch({
                 action: 'Ctx',
                 args: {
                     action: 'UpdateSettings',
                     args: {
                         ...profile.settings,
-                        hardware_decoding: !profile.settings.hardware_decoding
+                        nextVideoNotificationDuration: parseInt(event.value, 10)
+                    }
+                }
+            });
+        }
+    }), [profile.settings]);
+    const bingeWatchingCheckbox = React.useMemo(() => ({
+        checked: profile.settings.bingeWatching,
+        onClick: () => {
+            core.transport.dispatch({
+                action: 'Ctx',
+                args: {
+                    action: 'UpdateSettings',
+                    args: {
+                        ...profile.settings,
+                        bingeWatching: !profile.settings.bingeWatching
+                    }
+                }
+            });
+        }
+    }), [profile.settings]);
+    const playInBackgroundCheckbox = React.useMemo(() => ({
+        checked: profile.settings.playInBackground,
+        onClick: () => {
+            core.transport.dispatch({
+                action: 'Ctx',
+                args: {
+                    action: 'UpdateSettings',
+                    args: {
+                        ...profile.settings,
+                        playInBackground: !profile.settings.playInBackground
+                    }
+                }
+            });
+        }
+    }), [profile.settings]);
+    const hardwareDecodingCheckbox = React.useMemo(() => ({
+        checked: profile.settings.hardwareDecoding,
+        onClick: () => {
+            core.transport.dispatch({
+                action: 'Ctx',
+                args: {
+                    action: 'UpdateSettings',
+                    args: {
+                        ...profile.settings,
+                        hardwareDecoding: !profile.settings.hardwareDecoding
+                    }
+                }
+            });
+        }
+    }), [profile.settings]);
+    const streamingServerUrlInput = React.useMemo(() => ({
+        value: profile.settings.streamingServerUrl,
+        onChange: (value) => {
+            core.transport.dispatch({
+                action: 'Ctx',
+                args: {
+                    action: 'UpdateSettings',
+                    args: {
+                        ...profile.settings,
+                        streamingServerUrl: value
                     }
                 }
             });
@@ -189,10 +268,14 @@ const useProfileSettingsInputs = (profile) => {
         subtitlesTextColorInput,
         subtitlesBackgroundColorInput,
         subtitlesOutlineColorInput,
+        audioLanguageSelect,
+        seekTimeDurationSelect,
+        playInExternalPlayerSelect,
+        nextVideoPopupDurationSelect,
         bingeWatchingCheckbox,
         playInBackgroundCheckbox,
-        playInExternalPlayerCheckbox,
-        hardwareDecodingCheckbox
+        hardwareDecodingCheckbox,
+        streamingServerUrlInput
     };
 };
 

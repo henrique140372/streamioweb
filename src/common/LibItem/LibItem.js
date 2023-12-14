@@ -1,30 +1,45 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const { useServices } = require('stremio/services');
 const PropTypes = require('prop-types');
 const MetaItem = require('stremio/common/MetaItem');
+const useNotifications = require('stremio/common/useNotifications');
+const { t } = require('i18next');
 
 const OPTIONS = [
-    { label: 'Play', value: 'play' },
-    { label: 'Details', value: 'details' },
-    { label: 'Dismiss', value: 'dismiss' }
+    { label: 'LIBRARY_PLAY', value: 'play' },
+    { label: 'LIBRARY_DETAILS', value: 'details' },
+    { label: 'LIBRARY_RESUME_DISMISS', value: 'dismiss' },
+    { label: 'LIBRARY_REMOVE', value: 'remove' },
 ];
 
-const LibItem = ({ id, ...props }) => {
+const LibItem = ({ _id, removable, ...props }) => {
     const { core } = useServices();
+    const notifications = useNotifications();
+    const newVideos = React.useMemo(() => {
+        const count = notifications.items?.[_id]?.length ?? 0;
+        return Math.min(Math.max(count, 0), 99);
+    }, [_id, notifications.items]);
     const options = React.useMemo(() => {
-        return OPTIONS.filter(({ value }) => {
-            switch (value) {
-                case 'play':
-                    return props.deepLinks && typeof props.deepLinks.player === 'string';
-                case 'details':
-                    return props.deepLinks && (typeof props.deepLinks.meta_details_videos === 'string' || typeof props.deepLinks.meta_details_streams === 'string');
-                case 'dismiss':
-                    return typeof id === 'string' && props.progress !== null && !isNaN(props.progress);
-            }
-        });
-    }, [id, props.progress, props.deepLinks]);
+        return OPTIONS
+            .filter(({ value }) => {
+                switch (value) {
+                    case 'play':
+                        return props.deepLinks && typeof props.deepLinks.player === 'string';
+                    case 'details':
+                        return props.deepLinks && (typeof props.deepLinks.metaDetailsVideos === 'string' || typeof props.deepLinks.metaDetailsStreams === 'string');
+                    case 'dismiss':
+                        return typeof _id === 'string' && props.progress !== null && !isNaN(props.progress);
+                    case 'remove':
+                        return typeof _id === 'string' && removable;
+                }
+            })
+            .map((option) => ({
+                ...option,
+                label: t(option.label)
+            }));
+    }, [_id, removable, props.progress, props.deepLinks]);
     const optionOnSelect = React.useCallback((event) => {
         if (typeof props.optionOnSelect === 'function') {
             props.optionOnSelect(event);
@@ -41,22 +56,42 @@ const LibItem = ({ id, ...props }) => {
                 }
                 case 'details': {
                     if (props.deepLinks) {
-                        if (typeof props.deepLinks.meta_details_videos === 'string') {
-                            window.location = props.deepLinks.meta_details_videos;
-                        } else if (typeof props.deepLinks.meta_details_streams === 'string') {
-                            window.location = props.deepLinks.meta_details_streams;
+                        if (typeof props.deepLinks.metaDetailsVideos === 'string') {
+                            window.location = props.deepLinks.metaDetailsVideos;
+                        } else if (typeof props.deepLinks.metaDetailsStreams === 'string') {
+                            window.location = props.deepLinks.metaDetailsStreams;
                         }
                     }
 
                     break;
                 }
                 case 'dismiss': {
-                    if (typeof id === 'string') {
-                        core.dispatch({
+                    if (typeof _id === 'string') {
+                        core.transport.dispatch({
                             action: 'Ctx',
                             args: {
                                 action: 'RewindLibraryItem',
-                                args: id
+                                args: _id
+                            }
+                        });
+                        core.transport.dispatch({
+                            action: 'Ctx',
+                            args: {
+                                action: 'DismissNotificationItem',
+                                args: _id
+                            }
+                        });
+                    }
+
+                    break;
+                }
+                case 'remove': {
+                    if (typeof _id === 'string') {
+                        core.transport.dispatch({
+                            action: 'Ctx',
+                            args: {
+                                action: 'RemoveFromLibrary',
+                                args: _id
                             }
                         });
                     }
@@ -65,11 +100,11 @@ const LibItem = ({ id, ...props }) => {
                 }
             }
         }
-    }, [id, props.deepLinks, props.optionOnSelect]);
+    }, [_id, props.deepLinks, props.optionOnSelect]);
     return (
         <MetaItem
-            playIcon={props.progress !== null && !isNaN(props.progress)}
             {...props}
+            newVideos={newVideos}
             options={options}
             optionOnSelect={optionOnSelect}
         />
@@ -77,11 +112,12 @@ const LibItem = ({ id, ...props }) => {
 };
 
 LibItem.propTypes = {
-    id: PropTypes.string,
+    _id: PropTypes.string,
+    removable: PropTypes.bool,
     progress: PropTypes.number,
     deepLinks: PropTypes.shape({
-        meta_details_videos: PropTypes.string,
-        meta_details_streams: PropTypes.string,
+        metaDetailsVideos: PropTypes.string,
+        metaDetailsStreams: PropTypes.string,
         player: PropTypes.string
     }),
     optionOnSelect: PropTypes.func

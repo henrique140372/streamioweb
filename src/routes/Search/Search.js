@@ -1,16 +1,21 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
-const Icon = require('stremio-icons/dom');
-const { Image, MainNavBars, MetaRow, MetaItem, useDeepEqualMemo } = require('stremio/common');
+const debounce = require('lodash.debounce');
+const { useTranslation } = require('react-i18next');
+const { default: Icon } = require('@stremio/stremio-icons/react');
+const { Image, MainNavBars, MetaRow, MetaItem, withCoreSuspender, getVisibleChildrenRange } = require('stremio/common');
 const useSearch = require('./useSearch');
 const styles = require('./styles');
 
+const THRESHOLD = 100;
+
 const Search = ({ queryParams }) => {
-    const search = useSearch(queryParams);
-    const query = useDeepEqualMemo(() => {
+    const { t } = useTranslation();
+    const [search, loadSearchRows] = useSearch(queryParams);
+    const query = React.useMemo(() => {
         return search.selected !== null ?
             search.selected.extra.reduceRight((query, [name, value]) => {
                 if (name === 'search') {
@@ -22,70 +27,81 @@ const Search = ({ queryParams }) => {
             :
             null;
     }, [search.selected]);
+    const scrollContainerRef = React.useRef();
+    const onVisibleRangeChange = React.useCallback(() => {
+        if (search.catalogs.length === 0) {
+            return;
+        }
+
+        const range = getVisibleChildrenRange(scrollContainerRef.current, THRESHOLD);
+        if (range === null) {
+            return;
+        }
+
+        loadSearchRows(range);
+    }, [search.catalogs]);
+    const onScroll = React.useCallback(debounce(onVisibleRangeChange, 250), [onVisibleRangeChange]);
+    React.useLayoutEffect(() => {
+        onVisibleRangeChange();
+    }, [search.catalogs, onVisibleRangeChange]);
     return (
         <MainNavBars className={styles['search-container']} route={'search'} query={query}>
-            <div className={styles['search-content']}>
+            <div ref={scrollContainerRef} className={styles['search-content']} onScroll={onScroll}>
                 {
                     query === null ?
-                        <div className={styles['search-hints-container']}>
+                        <div className={classnames(styles['search-hints-container'], 'animation-fade-in')}>
                             <div className={styles['search-hint-container']}>
-                                <Icon className={styles['icon']} icon={'ic_movies'} />
-                                <div className={styles['label']}>Search for movies, series, YouTube and TV channels</div>
+                                <Icon className={styles['icon']} name={'movies'} />
+                                <div className={styles['label']}>{ t('SEARCH_EXPLANATION_CONTENT') }</div>
                             </div>
                             <div className={styles['search-hint-container']}>
-                                <Icon className={styles['icon']} icon={'ic_actor'} />
-                                <div className={styles['label']}>Search for actors, directors and writers</div>
+                                <Icon className={styles['icon']} name={'actors'} />
+                                <div className={styles['label']}>{ t('SEARCH_EXPLANATION_PEOPLE') }</div>
                             </div>
                         </div>
                         :
-                        search.catalog_resources.length === 0 ?
+                        search.catalogs.length === 0 ?
                             <div className={styles['message-container']}>
                                 <Image
                                     className={styles['image']}
-                                    src={'/images/empty.png'}
+                                    src={require('/images/empty.png')}
                                     alt={' '}
                                 />
-                                <div className={styles['message-label']}>No addons were requested for catalogs!</div>
+                                <div className={styles['message-label']}>{ t('STREMIO_TV_SEARCH_NO_ADDONS') }</div>
                             </div>
                             :
-                            search.catalog_resources.map((catalog_resource, index) => {
-                                const title = `${catalog_resource.origin} - ${catalog_resource.request.path.id} ${catalog_resource.request.path.type_name}`;
-                                switch (catalog_resource.content.type) {
+                            search.catalogs.map((catalog, index) => {
+                                switch (catalog.content?.type) {
                                     case 'Ready': {
-                                        const posterShape = catalog_resource.content.content.length > 0 ?
-                                            catalog_resource.content.content[0].posterShape
-                                            :
-                                            null;
                                         return (
                                             <MetaRow
                                                 key={index}
-                                                className={classnames(styles['search-row'], styles['search-row-poster'], { [styles[`search-row-${posterShape}`]]: typeof posterShape === 'string' })}
-                                                title={title}
-                                                items={catalog_resource.content.content}
+                                                className={classnames(styles['search-row'], styles[`search-row-${catalog.content.content[0].posterShape}`], 'animation-fade-in')}
+                                                title={catalog.title}
+                                                items={catalog.content.content}
                                                 itemComponent={MetaItem}
-                                                deepLinks={catalog_resource.deepLinks}
+                                                deepLinks={catalog.deepLinks}
                                             />
                                         );
                                     }
                                     case 'Err': {
-                                        const message = `Error(${catalog_resource.content.content.type})${typeof catalog_resource.content.content.content === 'string' ? ` - ${catalog_resource.content.content.content}` : ''}`;
                                         return (
                                             <MetaRow
                                                 key={index}
-                                                className={styles['search-row']}
-                                                title={title}
-                                                message={message}
-                                                deepLinks={catalog_resource.deepLinks}
+                                                className={classnames(styles['search-row'], 'animation-fade-in')}
+                                                title={catalog.title}
+                                                message={catalog.content.content}
+                                                deepLinks={catalog.deepLinks}
                                             />
                                         );
                                     }
-                                    case 'Loading': {
+                                    default: {
                                         return (
                                             <MetaRow.Placeholder
                                                 key={index}
-                                                className={classnames(styles['search-row'], styles['search-row-poster'])}
-                                                title={title}
-                                                deepLinks={catalog_resource.deepLinks}
+                                                className={classnames(styles['search-row'], styles['search-row-poster'], 'animation-fade-in')}
+                                                title={catalog.title}
+                                                deepLinks={catalog.deepLinks}
                                             />
                                         );
                                     }
@@ -101,4 +117,10 @@ Search.propTypes = {
     queryParams: PropTypes.instanceOf(URLSearchParams)
 };
 
-module.exports = Search;
+const SearchFallback = ({ queryParams }) => (
+    <MainNavBars className={styles['search-container']} route={'search'} query={queryParams.get('search')} />
+);
+
+SearchFallback.propTypes = Search.propTypes;
+
+module.exports = withCoreSuspender(Search, SearchFallback);

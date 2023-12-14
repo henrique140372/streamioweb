@@ -1,61 +1,43 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
-const { useRouteFocused } = require('stremio-router');
-const Icon = require('stremio-icons/dom');
-const { AddonDetailsModal, Button, Image, Multiselect, MainNavBars, TextInput, SearchBar, SharePrompt, ModalDialog, useBinaryState } = require('stremio/common');
+const classnames = require('classnames');
+const { useTranslation } = require('react-i18next');
+const { default: Icon } = require('@stremio/stremio-icons/react');
+const { AddonDetailsModal, Button, Image, Multiselect, MainNavBars, TextInput, SearchBar, SharePrompt, ModalDialog, useBinaryState, withCoreSuspender } = require('stremio/common');
 const Addon = require('./Addon');
-const useAddons = require('./useAddons');
+const useInstalledAddons = require('./useInstalledAddons');
+const useRemoteAddons = require('./useRemoteAddons');
+const useAddonDetailsTransportUrl = require('./useAddonDetailsTransportUrl');
 const useSelectableInputs = require('./useSelectableInputs');
 const styles = require('./styles');
 
 const Addons = ({ urlParams, queryParams }) => {
-    const routeFocused = useRouteFocused();
-    const navigate = React.useCallback((args) => {
-        if (!routeFocused) {
-            return;
-        }
-
-        const nextPath = args.hasOwnProperty('request') ?
-            `/${encodeURIComponent(args.request.base)}/${encodeURIComponent(args.request.path.id)}/${encodeURIComponent(args.request.path.type_name)}`
-            :
-            typeof urlParams.transportUrl === 'string' && typeof urlParams.catalogId === 'string' && typeof urlParams.type === 'string' ?
-                `/${encodeURIComponent(urlParams.transportUrl)}/${encodeURIComponent(urlParams.catalogId)}/${encodeURIComponent(urlParams.type)}`
-                :
-                '';
-        const nextQueryParams = new URLSearchParams(queryParams);
-        if (args.hasOwnProperty('detailsTransportUrl')) {
-            if (args.detailsTransportUrl === null) {
-                nextQueryParams.delete('addon');
-            } else {
-                nextQueryParams.set('addon', args.detailsTransportUrl);
-            }
-        }
-
-        window.location.replace(`#/addons${nextPath}?${nextQueryParams}`);
-    }, [routeFocused, urlParams, queryParams]);
-    const addons = useAddons(urlParams);
-    const detailsTransportUrl = queryParams.get('addon');
-    const selectInputs = useSelectableInputs(addons, navigate);
+    const { t } = useTranslation();
+    const installedAddons = useInstalledAddons(urlParams);
+    const remoteAddons = useRemoteAddons(urlParams);
+    const [addonDetailsTransportUrl, setAddonDetailsTransportUrl] = useAddonDetailsTransportUrl(urlParams, queryParams);
+    const selectInputs = useSelectableInputs(installedAddons, remoteAddons);
+    const [filtersModalOpen, openFiltersModal, closeFiltersModal] = useBinaryState(false);
     const [addAddonModalOpen, openAddAddonModal, closeAddAddonModal] = useBinaryState(false);
     const addAddonUrlInputRef = React.useRef(null);
     const addAddonOnSubmit = React.useCallback(() => {
         if (addAddonUrlInputRef.current !== null) {
-            navigate({ detailsTransportUrl: addAddonUrlInputRef.current.value });
+            setAddonDetailsTransportUrl(addAddonUrlInputRef.current.value);
         }
-    }, [navigate]);
+    }, [setAddonDetailsTransportUrl]);
     const addAddonModalButtons = React.useMemo(() => {
         return [
             {
                 className: styles['cancel-button'],
-                label: 'Cancel',
+                label: t('BUTTON_CANCEL'),
                 props: {
                     onClick: closeAddAddonModal
                 }
             },
             {
-                label: 'Add',
+                label: t('ADDON_ADD'),
                 props: {
                     onClick: addAddonOnSubmit
                 }
@@ -67,11 +49,6 @@ const Addons = ({ urlParams, queryParams }) => {
         setSearch(event.currentTarget.value);
     }, []);
     const [sharedAddon, setSharedAddon] = React.useState(null);
-    const renderLogoFallback = React.useMemo(() => () => {
-        return (
-            <Icon className={styles['icon']} icon={'ic_addons'} />
-        );
-    }, []);
     const clearSharedAddon = React.useCallback(() => {
         setSharedAddon(null);
     }, []);
@@ -79,11 +56,24 @@ const Addons = ({ urlParams, queryParams }) => {
         setSharedAddon(event.dataset.addon);
     }, []);
     const onAddonToggle = React.useCallback((event) => {
-        navigate({ detailsTransportUrl: event.dataset.addon.transportUrl });
-    }, [navigate]);
+        setAddonDetailsTransportUrl(event.dataset.addon.transportUrl);
+    }, [setAddonDetailsTransportUrl]);
+    const onAddonConfigure = React.useCallback((event) => {
+        window.open(event.dataset.addon.transportUrl.replace('manifest.json', 'configure'));
+    }, []);
     const closeAddonDetails = React.useCallback(() => {
-        navigate({ detailsTransportUrl: null });
-    }, [navigate]);
+        setAddonDetailsTransportUrl(null);
+    }, [setAddonDetailsTransportUrl]);
+    const searchFilterPredicate = React.useCallback((addon) => {
+        return search.length === 0 ||
+            (
+                (typeof addon.manifest.name === 'string' && addon.manifest.name.toLowerCase().includes(search.toLowerCase())) ||
+                (typeof addon.manifest.description === 'string' && addon.manifest.description.toLowerCase().includes(search.toLowerCase()))
+            );
+    }, [search]);
+    const renderLogoFallback = React.useCallback(() => (
+        <Icon className={styles['icon']} name={'addons'} />
+    ), []);
     React.useLayoutEffect(() => {
         closeAddAddonModal();
         setSearch('');
@@ -93,10 +83,6 @@ const Addons = ({ urlParams, queryParams }) => {
         <MainNavBars className={styles['addons-container']} route={'addons'}>
             <div className={styles['addons-content']}>
                 <div className={styles['selectable-inputs-container']}>
-                    <Button className={styles['add-button-container']} title={'Add addon'} onClick={openAddAddonModal}>
-                        <Icon className={styles['icon']} icon={'ic_plus'} />
-                        <div className={styles['add-button-label']}>Add addon</div>
-                    </Button>
                     {selectInputs.map((selectInput, index) => (
                         <Multiselect
                             {...selectInput}
@@ -105,77 +91,126 @@ const Addons = ({ urlParams, queryParams }) => {
                         />
                     ))}
                     <div className={styles['spacing']} />
+                    <Button className={styles['add-button-container']} title={t('ADD_ADDON')} onClick={openAddAddonModal}>
+                        <Icon className={styles['icon']} name={'add'} />
+                        <div className={styles['add-button-label']}>{ t('ADD_ADDON') }</div>
+                    </Button>
                     <SearchBar
                         className={styles['search-bar']}
-                        title={'Search addons'}
+                        title={t('ADDON_SEARCH')}
                         value={search}
                         onChange={searchInputOnChange}
                     />
+                    <Button className={styles['filter-button']} title={'All filters'} onClick={openFiltersModal}>
+                        <Icon className={styles['filter-icon']} name={'filters'} />
+                    </Button>
                 </div>
                 {
-                    addons.selectable.catalogs.length === 0 && addons.catalog_resource === null ?
-                        <div className={styles['message-container']}>
-                            No addons
-                        </div>
-                        :
-                        addons.catalog_resource === null ?
+                    installedAddons.selected !== null ?
+                        installedAddons.selectable.types.length === 0 ?
                             <div className={styles['message-container']}>
-                                No select
+                                No addons ware installed!
                             </div>
                             :
-                            addons.catalog_resource.content.type === 'Err' ?
+                            installedAddons.catalog.length === 0 ?
                                 <div className={styles['message-container']}>
-                                    Addons could not be loaded
+                                    No addons ware installed for that type!
                                 </div>
                                 :
-                                addons.catalog_resource.content.type === 'Loading' ?
+                                <div className={styles['addons-list-container']}>
+                                    {
+                                        installedAddons.catalog
+                                            .filter(searchFilterPredicate)
+                                            .map((addon, index) => (
+                                                <Addon
+                                                    key={index}
+                                                    className={classnames(styles['addon'], 'animation-fade-in')}
+                                                    id={addon.manifest.id}
+                                                    name={addon.manifest.name}
+                                                    version={addon.manifest.version}
+                                                    logo={addon.manifest.logo}
+                                                    description={addon.manifest.description}
+                                                    types={addon.manifest.types}
+                                                    behaviorHints={addon.manifest.behaviorHints}
+                                                    installed={addon.installed}
+                                                    onToggle={onAddonToggle}
+                                                    onConfigure={onAddonConfigure}
+                                                    onShare={onAddonShare}
+                                                    dataset={{ addon }}
+                                                />
+                                            ))
+                                    }
+                                </div>
+                        :
+                        remoteAddons.selected !== null ?
+                            remoteAddons.catalog.content.type === 'Err' ?
+                                <div className={styles['message-container']}>
+                                    {remoteAddons.catalog.content.content}
+                                </div>
+                                :
+                                remoteAddons.catalog.content.type === 'Loading' ?
                                     <div className={styles['message-container']}>
-                                        Loading
+                                        Loading!
                                     </div>
                                     :
                                     <div className={styles['addons-list-container']}>
                                         {
-                                            addons.catalog_resource.content.content
-                                                .filter((addon) => {
-                                                    return search.length === 0 ||
-                                                        (
-                                                            (typeof addon.manifest.name === 'string' && addon.manifest.name.toLowerCase().includes(search.toLowerCase())) ||
-                                                            (typeof addon.manifest.description === 'string' && addon.manifest.description.toLowerCase().includes(search.toLowerCase()))
-                                                        );
-                                                })
+                                            remoteAddons.catalog.content.content
+                                                .filter(searchFilterPredicate)
                                                 .map((addon, index) => (
                                                     <Addon
                                                         key={index}
-                                                        className={styles['addon']}
+                                                        className={classnames(styles['addon'], 'animation-fade-in')}
                                                         id={addon.manifest.id}
                                                         name={addon.manifest.name}
                                                         version={addon.manifest.version}
                                                         logo={addon.manifest.logo}
                                                         description={addon.manifest.description}
                                                         types={addon.manifest.types}
+                                                        behaviorHints={addon.manifest.behaviorHints}
                                                         installed={addon.installed}
                                                         onToggle={onAddonToggle}
+                                                        onConfigure={onAddonConfigure}
                                                         onShare={onAddonShare}
                                                         dataset={{ addon }}
                                                     />
                                                 ))
                                         }
                                     </div>
+                            :
+                            <div className={styles['message-container']}>
+                                No select
+                            </div>
                 }
             </div>
+            {
+                filtersModalOpen ?
+                    <ModalDialog title={'Addons filters'} className={styles['filters-modal']} onCloseRequest={closeFiltersModal}>
+                        {selectInputs.map((selectInput, index) => (
+                            <Multiselect
+                                {...selectInput}
+                                key={index}
+                                className={styles['select-input-container']}
+                            />
+                        ))}
+                    </ModalDialog>
+                    :
+                    null
+            }
             {
                 addAddonModalOpen ?
                     <ModalDialog
                         className={styles['add-addon-modal-container']}
-                        title={'Add addon'}
+                        title={t('ADD_ADDON')}
                         buttons={addAddonModalButtons}
                         onCloseRequest={closeAddAddonModal}>
-                        <div className={styles['notice']}>You can add an addon via an external link, which will appear under Installed addons.</div>
+                        <div className={styles['notice']}>{ t('ADD_ADDON_DESCRIPTION') }</div>
                         <TextInput
                             ref={addAddonUrlInputRef}
                             className={styles['addon-url-input']}
                             type={'text'}
-                            placeholder={'Paste addon URL'}
+                            placeholder={t('PASTE_ADDON_URL')}
+                            autoFocus={true}
                             onSubmit={addAddonOnSubmit}
                         />
                     </ModalDialog>
@@ -186,7 +221,7 @@ const Addons = ({ urlParams, queryParams }) => {
                 sharedAddon !== null ?
                     <ModalDialog
                         className={styles['share-modal-container']}
-                        title={'Share Addon'}
+                        title={t('SHARE_ADDON')}
                         onCloseRequest={clearSharedAddon}>
                         <div className={styles['title-container']}>
                             <Image
@@ -214,9 +249,9 @@ const Addons = ({ urlParams, queryParams }) => {
                     null
             }
             {
-                typeof detailsTransportUrl === 'string' ?
+                typeof addonDetailsTransportUrl === 'string' ?
                     <AddonDetailsModal
-                        transportUrl={detailsTransportUrl}
+                        transportUrl={addonDetailsTransportUrl}
                         onCloseRequest={closeAddonDetails}
                     />
                     :
@@ -228,6 +263,7 @@ const Addons = ({ urlParams, queryParams }) => {
 
 Addons.propTypes = {
     urlParams: PropTypes.shape({
+        path: PropTypes.string,
         transportUrl: PropTypes.string,
         catalogId: PropTypes.string,
         type: PropTypes.string
@@ -235,4 +271,8 @@ Addons.propTypes = {
     queryParams: PropTypes.instanceOf(URLSearchParams)
 };
 
-module.exports = Addons;
+const AddonsFallback = () => (
+    <MainNavBars className={styles['addons-container']} route={'addons'} />
+);
+
+module.exports = withCoreSuspender(Addons, AddonsFallback);

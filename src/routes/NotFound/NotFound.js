@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const { Image, HorizontalNavBar } = require('stremio/common');
@@ -17,7 +17,7 @@ const NotFound = () => {
             <div className={styles['not-found-content']}>
                 <Image
                     className={styles['not-found-image']}
-                    src={'/images/empty.png'}
+                    src={require('/images/empty.png')}
                     alt={' '}
                 />
                 <div className={styles['not-found-label']}>Page not found!</div>
