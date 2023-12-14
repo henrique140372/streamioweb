@@ -1,57 +1,73 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const throttle = require('lodash.throttle');
+const isEqual = require('lodash.isequal');
+const intersection = require('lodash.intersection');
+const { useCoreSuspender } = require('stremio/common/CoreSuspender');
 const { useRouteFocused } = require('stremio-router');
 const { useServices } = require('stremio/services');
-const useDeepEqualState = require('stremio/common/useDeepEqualState');
 
-const useModelState = ({ model, init, action, timeout, onNewState, map, mapWithCtx }) => {
-    const modelRef = React.useRef(model);
-    const mountedRef = React.useRef(false);
+const useModelState = ({ action, ...args }) => {
     const { core } = useServices();
     const routeFocused = useRouteFocused();
-    const [state, setState] = useDeepEqualState(init);
-    React.useLayoutEffect(() => {
-        core.dispatch(action, modelRef.current);
+    const mountedRef = React.useRef(false);
+    const [model, timeout, map, deps] = React.useMemo(() => {
+        return [args.model, args.timeout, args.map, args.deps];
+    }, []);
+    const { getState } = useCoreSuspender();
+    const [state, setState] = React.useReducer(
+        (prevState, nextState) => {
+            return Object.keys(prevState).reduce((result, key) => {
+                result[key] = isEqual(prevState[key], nextState[key]) ? prevState[key] : nextState[key];
+                return result;
+            }, {});
+        },
+        undefined,
+        () => {
+            if (typeof map === 'function') {
+                return map(getState(model));
+            } else {
+                return getState(model);
+            }
+        }
+    );
+    React.useInsertionEffect(() => {
+        if (action) {
+            core.transport.dispatch(action, model);
+        }
     }, [action]);
-    React.useLayoutEffect(() => {
+    React.useInsertionEffect(() => {
         return () => {
-            core.dispatch({ action: 'Unload' }, modelRef.current);
+            core.transport.dispatch({ action: 'Unload' }, model);
         };
     }, []);
-    React.useLayoutEffect(() => {
-        const onNewStateThrottled = throttle(() => {
-            const state = core.getState(modelRef.current);
-            if (typeof onNewState === 'function') {
-                const action = onNewState(state);
-                const handled = core.dispatch(action, modelRef.current);
-                if (handled) {
-                    return;
-                }
+    React.useInsertionEffect(() => {
+        const onNewState = async (models) => {
+            if (models.indexOf(model) === -1 && (!Array.isArray(deps) || intersection(deps, models).length === 0)) {
+                return;
             }
 
-            if (typeof mapWithCtx === 'function') {
-                const ctx = core.getState('ctx');
-                setState(mapWithCtx(state, ctx));
-            } else if (typeof map === 'function') {
+            const state = await core.transport.getState(model);
+            if (typeof map === 'function') {
                 setState(map(state));
             } else {
                 setState(state);
             }
-        }, timeout);
+        };
+        const onNewStateThrottled = throttle(onNewState, timeout);
         if (routeFocused) {
-            core.on('NewState', onNewStateThrottled);
+            core.transport.on('NewState', onNewStateThrottled);
             if (mountedRef.current) {
-                onNewStateThrottled.call();
+                onNewState([model]);
             }
         }
         return () => {
             onNewStateThrottled.cancel();
-            core.off('NewState', onNewStateThrottled);
+            core.transport.off('NewState', onNewStateThrottled);
         };
-    }, [routeFocused, timeout, onNewState, map, mapWithCtx]);
-    React.useLayoutEffect(() => {
+    }, [routeFocused]);
+    React.useInsertionEffect(() => {
         mountedRef.current = true;
     }, []);
     return state;

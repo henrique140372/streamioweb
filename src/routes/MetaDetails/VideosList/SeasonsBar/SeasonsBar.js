@@ -1,9 +1,10 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
-const Icon = require('stremio-icons/dom');
+const { t } = require('i18next');
+const { default: Icon } = require('@stremio/stremio-icons/react');
 const { Button, Multiselect } = require('stremio/common');
 const SeasonsBarPlaceholder = require('./SeasonsBarPlaceholder');
 const styles = require('./styles');
@@ -12,7 +13,7 @@ const SeasonsBar = ({ className, seasons, season, onSelect }) => {
     const options = React.useMemo(() => {
         return seasons.map((season) => ({
             value: String(season),
-            label: `Season ${season}`
+            label: season > 0 ? `${t('SEASON')} ${season}` : t('SPECIAL')
         }));
     }, [seasons]);
     const selected = React.useMemo(() => {
@@ -48,19 +49,20 @@ const SeasonsBar = ({ className, seasons, season, onSelect }) => {
     return (
         <div className={classnames(className, styles['seasons-bar-container'])}>
             <Button className={styles['prev-season-button']} title={'Previous season'} data-action={'prev'} onClick={prevNextButtonOnClick}>
-                <Icon className={styles['icon']} icon={'ic_arrow_thin_left'} />
+                <Icon className={styles['icon']} name={'chevron-back'} />
                 <div className={styles['label']}>Prev</div>
             </Button>
             <Multiselect
                 className={styles['seasons-popup-label-container']}
-                title={`Season ${season}`}
+                title={season > 0 ? `${t('SEASON')} ${season}` : t('SPECIAL')}
+                direction={'bottom-left'}
                 options={options}
                 selected={selected}
                 onSelect={seasonOnSelect}
             />
             <Button className={styles['next-season-button']} title={'Next season'} data-action={'next'} onClick={prevNextButtonOnClick}>
                 <div className={styles['label']}>Next</div>
-                <Icon className={styles['icon']} icon={'ic_arrow_thin_right'} />
+                <Icon className={styles['icon']} name={'chevron-forward'} />
             </Button>
         </div>
     );

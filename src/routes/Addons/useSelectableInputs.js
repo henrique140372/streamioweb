@@ -1,50 +1,78 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
+const { t } = require('i18next');
+const { translateOption } = require('stremio/common');
 
-const mapSelectableInputs = (addons, navigate) => {
+const mapSelectableInputs = (installedAddons, remoteAddons) => {
     const catalogSelect = {
-        title: 'Select catalog',
-        options: addons.selectable.catalogs
-            .map(({ name, request }) => ({
-                value: JSON.stringify(request),
-                label: name
+        title: t('SELECT_CATALOG'),
+        options: remoteAddons.selectable.catalogs
+            .concat(installedAddons.selectable.catalogs)
+            .map(({ name, deepLinks }) => ({
+                value: deepLinks.addons,
+                label: translateOption(name, 'ADDON_'),
+                title: translateOption(name, 'ADDON_'),
             })),
-        selected: addons.selectable.catalogs
-            .filter(({ request }) => {
-                return addons.catalog_resource !== null &&
-                    addons.catalog_resource.request.base === request.base &&
-                    addons.catalog_resource.request.path.id === request.path.id;
-            })
-            .map(({ request }) => JSON.stringify(request)),
+        selected: remoteAddons.selectable.catalogs
+            .concat(installedAddons.selectable.catalogs)
+            .filter(({ selected }) => selected)
+            .map(({ deepLinks }) => deepLinks.addons),
+        renderLabelText: remoteAddons.selected !== null ?
+            () => {
+                const selectableCatalog = remoteAddons.selectable.catalogs
+                    .find(({ id }) => id === remoteAddons.selected.request.path.id);
+                return selectableCatalog ? translateOption(selectableCatalog.name, 'ADDON_') : remoteAddons.selected.request.path.id;
+            }
+            :
+            null,
         onSelect: (event) => {
-            navigate({ request: JSON.parse(event.value) });
+            window.location = event.value;
         }
     };
     const typeSelect = {
-        title: 'Select type',
-        options: addons.selectable.types
-            .map(({ name, request }) => ({
-                value: JSON.stringify(request),
-                label: name
+        title: t('SELECT_TYPE'),
+        options: installedAddons.selected !== null ?
+            installedAddons.selectable.types.map(({ type, deepLinks }) => ({
+                value: deepLinks.addons,
+                label: type !== null ? translateOption(type, 'TYPE_') : t('TYPE_ALL')
+            }))
+            :
+            remoteAddons.selectable.types.map(({ type, deepLinks }) => ({
+                value: deepLinks.addons,
+                label: translateOption(type, 'TYPE_')
             })),
-        selected: addons.selectable.types
-            .filter(({ request }) => {
-                return addons.catalog_resource !== null &&
-                    addons.catalog_resource.request.path.type_name === request.path.type_name;
-            })
-            .map(({ request }) => JSON.stringify(request)),
+        selected: installedAddons.selected !== null ?
+            installedAddons.selectable.types
+                .filter(({ selected }) => selected)
+                .map(({ deepLinks }) => deepLinks.addons)
+            :
+            remoteAddons.selectable.types
+                .filter(({ selected }) => selected)
+                .map(({ deepLinks }) => deepLinks.addons),
+        renderLabelText: () => {
+            return installedAddons.selected !== null ?
+                installedAddons.selected.request.type === null ?
+                    t('TYPE_ALL')
+                    :
+                    translateOption(installedAddons.selected.request.type, 'TYPE_')
+                :
+                remoteAddons.selected !== null ?
+                    translateOption(remoteAddons.selected.request.path.type, 'TYPE_')
+                    :
+                    typeSelect.title;
+        },
         onSelect: (event) => {
-            navigate({ request: JSON.parse(event.value) });
+            window.location = event.value;
         }
     };
     return [catalogSelect, typeSelect];
 };
 
-const useSelectableInputs = (addons, navigate) => {
+const useSelectableInputs = (installedAddons, remoteAddons) => {
     const selectableInputs = React.useMemo(() => {
-        return mapSelectableInputs(addons, navigate);
-    }, [addons, navigate]);
+        return mapSelectableInputs(installedAddons, remoteAddons);
+    }, [installedAddons, remoteAddons]);
     return selectableInputs;
 };
 
