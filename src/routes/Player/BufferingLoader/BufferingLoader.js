@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
@@ -13,7 +13,7 @@ const BufferingLoader = ({ className, logo }) => {
                 className={styles['buffering-loader']}
                 src={logo}
                 alt={' '}
-                fallbackSrc={'/images/stremio_symbol.png'}
+                fallbackSrc={require('/images/stremio_symbol.png')}
             />
         </div>
     );

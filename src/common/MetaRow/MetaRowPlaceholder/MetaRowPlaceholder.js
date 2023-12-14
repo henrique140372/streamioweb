@@ -1,14 +1,16 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
-const Icon = require('stremio-icons/dom');
+const { useTranslation } = require('react-i18next');
+const { default: Icon } = require('@stremio/stremio-icons/react');
 const Button = require('stremio/common/Button');
 const CONSTANTS = require('stremio/common/CONSTANTS');
 const styles = require('./styles');
 
 const MetaRowPlaceholder = ({ className, title, deepLinks }) => {
+    const { t } = useTranslation();
     return (
         <div className={classnames(className, styles['meta-row-placeholder-container'])}>
             <div className={styles['header-container']}>
@@ -17,9 +19,9 @@ const MetaRowPlaceholder = ({ className, title, deepLinks }) => {
                 </div>
                 {
                     deepLinks && typeof deepLinks.discover === 'string' ?
-                        <Button className={styles['see-all-container']} title={'SEE ALL'} href={deepLinks.discover}>
-                            <div className={styles['label']}>SEE ALL</div>
-                            <Icon className={styles['icon']} icon={'ic_arrow_thin_right'} />
+                        <Button className={styles['see-all-container']} title={t('BUTTON_SEE_ALL')} href={deepLinks.discover} tabIndex={-1}>
+                            <div className={styles['label']}>{ t('BUTTON_SEE_ALL') }</div>
+                            <Icon className={styles['icon']} name={'chevron-forward'} />
                         </Button>
                         :
                         null

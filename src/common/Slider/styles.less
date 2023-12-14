@@ -1,6 +1,6 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
-@import (reference) '~stremio-colors/dist/less/stremio-colors.less';
+@import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 
 html.active-slider-within {
     cursor: grabbing;
@@ -16,26 +16,9 @@ html.active-slider-within {
     overflow: visible;
     cursor: pointer;
 
-    &:hover, &:global(.active) {
-        .track-before {
-            background-color: @color-primary-light5;
-        }
-    }
-
     &:global(.disabled) {
         pointer-events: none;
-
-        .track {
-            background-color: @color-surface-dark5;
-        }
-
-        .track-before {
-            background-color: @color-surface;
-        }
-
-        .thumb {
-            fill: @color-surface;
-        }
+        opacity: 0.5;
     }
 
     .layer {
@@ -52,22 +35,36 @@ html.active-slider-within {
     }
 
     .track {
+        z-index: 0;
         flex: 1;
         height: var(--track-size);
-        background-color: @color-primary-dark3;
+        border-radius: var(--track-size);
+        background-color: var(--overlay-color);
     }
 
     .track-before {
+        z-index: 1;
         flex: none;
         height: var(--track-size);
-        background-color: @color-primary-light3;
+        border-radius: var(--track-size);
+        background-color: var(--overlay-color);
+    }
+
+    .track-after {
+        z-index: 2;
+        flex: none;
+        height: var(--track-size);
+        border-radius: var(--track-size);
+        background-color: var(--primary-foreground-color);
     }
 
     .thumb {
+        z-index: 3;
         flex: none;
         width: var(--thumb-size);
         height: var(--thumb-size);
         transform: translateX(-50%);
-        fill: @color-surface-light5;
+        background-color: var(--primary-foreground-color);
+        border-radius: 100%;
     }
 }

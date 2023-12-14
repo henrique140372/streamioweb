@@ -10,7 +10,9 @@
     },
     "globals": {
         "YT": "readonly",
-        "FB": "readonly"
+        "FB": "readonly",
+        "cast": "readonly",
+        "chrome": "readonly"
     },
     "env": {
         "node": true,
@@ -19,15 +21,14 @@
         "es6": true
     },
     "parserOptions": {
-        "ecmaVersion": 9,
+        "ecmaVersion": 11,
         "ecmaFeatures": {
             "jsx": true
         }
     },
     "ignorePatterns": [
         "/*",
-        "!/src",
-        "src/video"
+        "!/src"
     ],
     "rules": {
         "arrow-parens": "error",
@@ -44,7 +45,15 @@
                 "SwitchCase": 1
             }
         ],
-        "no-console": "error",
+        "no-console": [
+            "error",
+            {
+                "allow": [
+                    "warn",
+                    "error"
+                ]
+            }
+        ],
         "no-extra-semi": "error",
         "no-eq-null": "error",
         "no-multi-spaces": "error",
@@ -59,7 +68,12 @@
         "no-trailing-spaces": "error",
         "no-useless-concat": "error",
         "no-unreachable": "error",
-        "no-unused-vars": "error",
+        "no-unused-vars": [
+            "error",
+            {
+                "varsIgnorePattern": "_"
+            }
+        ],
         "prefer-const": "error",
         "quotes": [
             "error",

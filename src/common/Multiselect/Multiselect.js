@@ -1,9 +1,9 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
-const Icon = require('stremio-icons/dom');
+const { default: Icon } = require('@stremio/stremio-icons/react');
 const Button = require('stremio/common/Button');
 const Popup = require('stremio/common/Popup');
 const ModalDialog = require('stremio/common/ModalDialog');
@@ -80,7 +80,7 @@ const Multiselect = ({ className, mode, direction, title, disabled, dataset, ren
 
         mountedRef.current = true;
     }, [menuOpen]);
-    const renderLabel = React.useMemo(() => ({ children, className, ...props }) => (
+    const renderLabel = React.useCallback(({ children, className, ...props }) => (
         <Button {...props} className={classnames(className, styles['label-container'], { 'active': menuOpen })} title={title} disabled={disabled} onClick={labelOnClick}>
             {
                 typeof renderLabelContent === 'function' ?
@@ -93,29 +93,29 @@ const Multiselect = ({ className, mode, direction, title, disabled, dataset, ren
                                     renderLabelText()
                                     :
                                     selected.length > 0 ?
-                                        options.reduce((labels, { label, value }) => {
-                                            if (selected.includes(value)) {
-                                                labels.push(typeof label === 'string' ? label : value);
-                                            }
-
-                                            return labels;
-                                        }, []).join(', ')
+                                        selected.map((value) => {
+                                            const option = options.find((option) => option.value === value);
+                                            return option && typeof option.label === 'string' ?
+                                                option.label
+                                                :
+                                                value;
+                                        }).join(', ')
                                         :
                                         title
                             }
                         </div>
-                        <Icon className={styles['icon']} icon={'ic_arrow_thin_down'} />
+                        <Icon className={styles['icon']} name={'caret-down'} />
                     </React.Fragment>
             }
             {children}
         </Button>
     ), [menuOpen, title, disabled, options, selected, labelOnClick, renderLabelContent, renderLabelText]);
-    const renderMenu = React.useMemo(() => () => (
+    const renderMenu = React.useCallback(() => (
         <div className={styles['menu-container']} onKeyDown={menuOnKeyDown} onClick={menuOnClick}>
             {
                 options.length > 0 ?
-                    options.map(({ label, value }) => (
-                        <Button key={value} className={classnames(styles['option-container'], { 'selected': selected.includes(value) })} title={typeof label === 'string' ? label : value} data-value={value} onClick={optionOnClick}>
+                    options.map(({ label, title, value }) => (
+                        <Button key={value} className={classnames(styles['option-container'], { 'selected': selected.includes(value) })} title={typeof title === 'string' ? title : typeof label === 'string' ? label : value} data-value={value} onClick={optionOnClick}>
                             <div className={styles['label']}>{typeof label === 'string' ? label : value}</div>
                             <div className={styles['icon']} />
                         </Button>
@@ -162,6 +162,7 @@ Multiselect.propTypes = {
     title: PropTypes.string,
     options: PropTypes.arrayOf(PropTypes.shape({
         value: PropTypes.string.isRequired,
+        title: PropTypes.string,
         label: PropTypes.string
     })),
     selected: PropTypes.arrayOf(PropTypes.string),

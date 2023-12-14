@@ -1,47 +1,59 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
+const { useTranslation } = require('react-i18next');
+const { translateOption } = require('stremio/common');
 
-const SORT_OPTIONS = [
-    { label: 'Recent', value: 'lastwatched' },
-    { label: 'A-Z', value: 'name' },
-    { label: 'Watched', value: 'timeswatched' },
-];
-
-const mapSelectableInputs = (route, library) => {
+const mapSelectableInputs = (library, t) => {
     const typeSelect = {
-        title: 'Select type',
-        selected: library.selected !== null ?
-            [JSON.stringify(library.selected.type_name)]
-            :
-            [],
-        options: [{ label: 'All', value: JSON.stringify(null) }]
-            .concat(library.type_names.map((type) => ({ label: type, value: JSON.stringify(type) }))),
+        title: t('SELECT_TYPE'),
+        options: library.selectable.types
+            .map(({ type, deepLinks }) => ({
+                value: deepLinks.library,
+                label: type === null ? t('TYPE_ALL') : translateOption(type, 'TYPE_')
+            })),
+        selected: library.selectable.types
+            .filter(({ selected }) => selected)
+            .map(({ deepLinks }) => deepLinks.library),
         onSelect: (event) => {
-            const type = JSON.parse(event.value);
-            const queryParams = new URLSearchParams(library.selected !== null ? [['sort', library.selected.sort]] : []);
-            window.location = `#/${route}${type !== null ? `/${encodeURIComponent(type)}` : ''}?${queryParams.toString()}`;
+            window.location = event.value;
         }
     };
     const sortSelect = {
-        title: 'Select sort',
-        selected: library.selected !== null ?
-            [library.selected.sort]
-            :
-            [],
-        options: SORT_OPTIONS,
+        title: t('SELECT_SORT'),
+        options: library.selectable.sorts
+            .map(({ sort, deepLinks }) => ({
+                value: deepLinks.library,
+                label: translateOption(sort, 'SORT_')
+            })),
+        selected: library.selectable.sorts
+            .filter(({ selected }) => selected)
+            .map(({ deepLinks }) => deepLinks.library),
         onSelect: (event) => {
-            const type = library.selected !== null ? library.selected.type_name : null;
-            const queryParams = new URLSearchParams([['sort', event.value]]);
-            window.location = `#/${route}${type !== null ? `/${encodeURIComponent(type)}` : ''}?${queryParams.toString()}`;
+            window.location = event.value;
         }
     };
-    return [typeSelect, sortSelect];
+    const paginationInput = library.selectable.prevPage || library.selectable.nextPage ?
+        {
+            label: library.selected.request.page.toString(),
+            onSelect: (event) => {
+                if (event.value === 'prev' && library.selectable.prevPage) {
+                    window.location = library.selectable.prevPage.deepLinks.library;
+                }
+                if (event.value === 'next' && library.selectable.nextPage) {
+                    window.location = library.selectable.nextPage.deepLinks.library;
+                }
+            }
+        }
+        :
+        null;
+    return [typeSelect, sortSelect, paginationInput];
 };
 
-const useSelectableInputs = (route, library) => {
+const useSelectableInputs = (library) => {
+    const { t } = useTranslation();
     const selectableInputs = React.useMemo(() => {
-        return mapSelectableInputs(route, library);
+        return mapSelectableInputs(library, t);
     }, [library]);
     return selectableInputs;
 };
