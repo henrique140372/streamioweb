@@ -1,48 +1,37 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
-const { deepLinking, useModelState } = require('stremio/common');
-
-const initSearchState = () => ({
-    selected: null,
-    catalog_resources: []
-});
-
-const mapSearchStateWithCtx = (search, ctx) => {
-    const selected = search.selected;
-    const catalog_resources = search.catalog_resources.map((catalog_resource) => {
-        const request = catalog_resource.request;
-        const content = catalog_resource.content.type === 'Ready' ?
-            {
-                type: 'Ready',
-                content: catalog_resource.content.content.map((metaItem, _, metaItems) => ({
-                    type: metaItem.type,
-                    name: metaItem.name,
-                    poster: metaItem.poster,
-                    posterShape: metaItems[0].posterShape,
-                    deepLinks: deepLinking.withMetaItem({ metaItem })
-                }))
-            }
-            :
-            catalog_resource.content;
-        const origin = ctx.profile.addons.reduce((origin, addon) => {
-            if (addon.transportUrl === catalog_resource.request.base) {
-                return typeof addon.manifest.name === 'string' && addon.manifest.name.length > 0 ?
-                    addon.manifest.name
-                    :
-                    addon.manifest.id;
-            }
-
-            return origin;
-        }, catalog_resource.request.base);
-        const deepLinks = deepLinking.withCatalog({ request });
-        return { request, content, origin, deepLinks };
-    });
-    return { selected, catalog_resources };
-};
+const { useModelState } = require('stremio/common');
+const { useServices } = require('stremio/services');
 
 const useSearch = (queryParams) => {
-    const loadSearchAction = React.useMemo(() => {
+    const { core } = useServices();
+    // TODO: refactor this to be in stremio-core-web
+    // React.useEffect(() => {
+    //     let timerId = setTimeout(emitSearchEvent, 500);
+    //     function emitSearchEvent() {
+    //         timerId = null;
+    //         const state = core.transport.getState('search');
+    //         if (state.selected !== null) {
+    //             const [, query] = state.selected.extra.find(([name]) => name === 'search');
+    //             const responses = state.catalogs.filter((catalog) => catalog.content?.type === 'Ready');
+    //             core.transport.analytics({
+    //                 event: 'Search',
+    //                 args: {
+    //                     query,
+    //                     responsesCount: responses.length
+    //                 }
+    //             });
+    //         }
+    //     }
+    //     return () => {
+    //         if (timerId !== null) {
+    //             clearTimeout(timerId);
+    //             emitSearchEvent();
+    //         }
+    //     };
+    // }, [queryParams.get('search')]);
+    const action = React.useMemo(() => {
         if (queryParams.has('search') && queryParams.get('search').length > 0) {
             return {
                 action: 'Load',
@@ -61,12 +50,17 @@ const useSearch = (queryParams) => {
             };
         }
     }, [queryParams]);
-    return useModelState({
-        model: 'search',
-        action: loadSearchAction,
-        mapWithCtx: mapSearchStateWithCtx,
-        init: initSearchState
-    });
+    const loadRange = React.useCallback((range) => {
+        core.transport.dispatch({
+            action: 'CatalogsWithExtra',
+            args: {
+                action: 'LoadRange',
+                args: range
+            }
+        }, 'search');
+    }, []);
+    const search = useModelState({ model: 'search', action });
+    return [search, loadRange];
 };
 
 module.exports = useSearch;

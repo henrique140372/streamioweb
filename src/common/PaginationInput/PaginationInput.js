@@ -1,9 +1,9 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
-const Icon = require('stremio-icons/dom');
+const { default: Icon } = require('@stremio/stremio-icons/react');
 const Button = require('stremio/common/Button');
 const styles = require('./styles');
 
@@ -22,13 +22,13 @@ const PaginationInput = ({ className, label, dataset, onSelect, ...props }) => {
     return (
         <div {...props} className={classnames(className, styles['pagination-input-container'])} >
             <Button className={styles['prev-button-container']} title={'Previous page'} data-value={'prev'} onClick={prevNextButtonOnClick}>
-                <Icon className={styles['icon']} icon={'ic_arrow_left'} />
+                <Icon className={styles['icon']} name={'chevron-back'} />
             </Button>
             <div className={styles['label-container']} title={label}>
                 <div className={styles['label']}>{label}</div>
             </div>
             <Button className={styles['next-button-container']} title={'Next page'} data-value={'next'} onClick={prevNextButtonOnClick}>
-                <Icon className={styles['icon']} icon={'ic_arrow_right'} />
+                <Icon className={styles['icon']} name={'chevron-forward'} />
             </Button>
         </div>
     );

@@ -1,9 +1,9 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
-const Icon = require('stremio-icons/dom');
+const { default: Icon } = require('@stremio/stremio-icons/react');
 const TextInput = require('stremio/common/TextInput');
 const SearchBarPlaceholder = require('./SearchBarPlaceholder');
 const styles = require('./styles');
@@ -18,7 +18,7 @@ const SearchBar = ({ className, title, value, onChange }) => {
                 value={value}
                 onChange={onChange}
             />
-            <Icon className={styles['icon']} icon={'ic_search'} />
+            <Icon className={styles['icon']} name={'search'} />
         </label>
     );
 };

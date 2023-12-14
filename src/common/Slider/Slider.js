@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
@@ -8,10 +8,11 @@ const useAnimationFrame = require('stremio/common/useAnimationFrame');
 const useLiveRef = require('stremio/common/useLiveRef');
 const styles = require('./styles');
 
-const Slider = ({ className, value, minimumValue, maximumValue, disabled, onSlide, onComplete }) => {
+const Slider = ({ className, value, buffered, minimumValue, maximumValue, disabled, onSlide, onComplete }) => {
     const minimumValueRef = useLiveRef(minimumValue !== null && !isNaN(minimumValue) ? minimumValue : 0);
     const maximumValueRef = useLiveRef(maximumValue !== null && !isNaN(maximumValue) ? maximumValue : 100);
     const valueRef = useLiveRef(value !== null && !isNaN(value) ? Math.min(maximumValueRef.current, Math.max(minimumValueRef.current, value)) : 0);
+    const bufferedRef = useLiveRef(buffered !== null && !isNaN(buffered) ? Math.min(maximumValueRef.current, Math.max(minimumValueRef.current, buffered)) : 0);
     const onSlideRef = useLiveRef(onSlide);
     const onCompleteRef = useLiveRef(onComplete);
     const sliderContainerRef = React.useRef(null);
@@ -95,18 +96,20 @@ const Slider = ({ className, value, minimumValue, maximumValue, disabled, onSlid
         };
     }, []);
     const thumbPosition = Math.max(0, Math.min(1, (valueRef.current - minimumValueRef.current) / (maximumValueRef.current - minimumValueRef.current)));
+    const bufferedPosition = Math.max(0, Math.min(1, (bufferedRef.current - minimumValueRef.current) / (maximumValueRef.current - minimumValueRef.current)));
     return (
         <div ref={sliderContainerRef} className={classnames(className, styles['slider-container'], { 'disabled': disabled })} onMouseDown={onMouseDown}>
             <div className={styles['layer']}>
                 <div className={styles['track']} />
             </div>
             <div className={styles['layer']}>
-                <div className={styles['track-before']} style={{ width: `calc(100% * ${thumbPosition})` }} />
+                <div className={styles['track-before']} style={{ width: `calc(100% * ${bufferedPosition})` }} />
             </div>
             <div className={styles['layer']}>
-                <svg className={styles['thumb']} style={{ marginLeft: `calc(100% * ${thumbPosition})` }} viewBox={'0 0 10 10'}>
-                    <circle cx={'5'} cy={'5'} r={'5'} />
-                </svg>
+                <div className={styles['track-after']} style={{ width: `calc(100% * ${thumbPosition})` }} />
+            </div>
+            <div className={styles['layer']}>
+                <div className={styles['thumb']} style={{ marginLeft: `calc(100% * ${thumbPosition})` }} />
             </div>
         </div>
     );
@@ -115,6 +118,7 @@ const Slider = ({ className, value, minimumValue, maximumValue, disabled, onSlid
 Slider.propTypes = {
     className: PropTypes.string,
     value: PropTypes.number,
+    buffered: PropTypes.number,
     minimumValue: PropTypes.number,
     maximumValue: PropTypes.number,
     disabled: PropTypes.bool,

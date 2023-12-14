@@ -1,26 +1,32 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
-const { HorizontalNavBar, MetaPreview, Image, useInLibrary } = require('stremio/common');
+const classnames = require('classnames');
+const { useServices } = require('stremio/services');
+const { VerticalNavBar, HorizontalNavBar, MetaPreview, ModalDialog, Image, DelayedRenderer, withCoreSuspender } = require('stremio/common');
 const StreamsList = require('./StreamsList');
 const VideosList = require('./VideosList');
 const useMetaDetails = require('./useMetaDetails');
-const useSelectableResource = require('./useSelectableResource');
+const useSeason = require('./useSeason');
+const useMetaExtensionTabs = require('./useMetaExtensionTabs');
 const styles = require('./styles');
 
-const MetaDetails = ({ urlParams }) => {
+const MetaDetails = ({ urlParams, queryParams }) => {
+    const { core } = useServices();
     const metaDetails = useMetaDetails(urlParams);
-    const [metaResourceRef, metaResources, selectedMetaResource] = useSelectableResource(
-        metaDetails.selected !== null ? metaDetails.selected.meta_resource_ref : null,
-        metaDetails.meta_resources
-    );
-    const streamsResourceRef = metaDetails.selected !== null ? metaDetails.selected.streams_resource_ref : null;
-    const streamsResources = metaDetails.streams_resources;
-    const selectedVideo = React.useMemo(() => {
-        return streamsResourceRef !== null && selectedMetaResource !== null ?
-            selectedMetaResource.content.content.videos.reduce((result, video) => {
-                if (video.id === streamsResourceRef.id) {
+    const [season, setSeason] = useSeason(urlParams, queryParams);
+    const [tabs, metaExtension, clearMetaExtension] = useMetaExtensionTabs(metaDetails.metaExtensions);
+    const [metaPath, streamPath] = React.useMemo(() => {
+        return metaDetails.selected !== null ?
+            [metaDetails.selected.metaPath, metaDetails.selected.streamPath]
+            :
+            [null, null];
+    }, [metaDetails.selected]);
+    const video = React.useMemo(() => {
+        return streamPath !== null && metaDetails.metaItem !== null && metaDetails.metaItem.content.type === 'Ready' ?
+            metaDetails.metaItem.content.content.videos.reduce((result, video) => {
+                if (video.id === streamPath.id) {
                     return video;
                 }
 
@@ -28,44 +34,101 @@ const MetaDetails = ({ urlParams }) => {
             }, null)
             :
             null;
-    }, [selectedMetaResource, streamsResourceRef]);
-    const [inLibrary, toggleInLibrary] = useInLibrary(selectedMetaResource !== null ? selectedMetaResource.content.content : null);
+    }, [metaDetails.metaItem, streamPath]);
+    const addToLibrary = React.useCallback(() => {
+        if (metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
+            return;
+        }
+
+        core.transport.dispatch({
+            action: 'Ctx',
+            args: {
+                action: 'AddToLibrary',
+                args: metaDetails.metaItem.content.content
+            }
+        });
+    }, [metaDetails]);
+    const removeFromLibrary = React.useCallback(() => {
+        if (metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
+            return;
+        }
+
+        core.transport.dispatch({
+            action: 'Ctx',
+            args: {
+                action: 'RemoveFromLibrary',
+                args: metaDetails.metaItem.content.content.id
+            }
+        });
+    }, [metaDetails]);
+    const toggleNotifications = React.useCallback(() => {
+        if (metaDetails.libraryItem) {
+            core.transport.dispatch({
+                action: 'Ctx',
+                args: {
+                    action: 'ToggleLibraryItemNotifications',
+                    args: [metaDetails.libraryItem._id, !metaDetails.libraryItem.state.noNotif],
+                }
+            });
+        }
+    }, [metaDetails.libraryItem]);
+    const seasonOnSelect = React.useCallback((event) => {
+        setSeason(event.value);
+    }, [setSeason]);
+    const renderBackgroundImageFallback = React.useCallback(() => null, []);
     return (
         <div className={styles['metadetails-container']}>
             <HorizontalNavBar
                 className={styles['nav-bar']}
                 backButton={true}
-                title={selectedMetaResource !== null ? selectedMetaResource.content.content.name : null}
+                addonsButton={true}
+                fullscreenButton={true}
+                navMenu={true}
             />
             <div className={styles['metadetails-content']}>
                 {
-                    metaResourceRef === null ?
-                        <div className={styles['meta-message-container']}>
-                            <Image className={styles['image']} src={'/images/empty.png'} alt={' '} />
-                            <div className={styles['message-label']}>No meta was selected!</div>
-                        </div>
+                    tabs.length > 0 ?
+                        <VerticalNavBar
+                            className={styles['vertical-nav-bar']}
+                            tabs={tabs}
+                            selected={metaExtension !== null ? metaExtension.url : null}
+                        />
                         :
-                        metaResources.length === 0 ?
+                        null
+                }
+                {
+                    metaPath === null ?
+                        <DelayedRenderer delay={500}>
                             <div className={styles['meta-message-container']}>
-                                <Image className={styles['image']} src={'/images/empty.png'} alt={' '} />
+                                <Image className={styles['image']} src={require('/images/empty.png')} alt={' '} />
+                                <div className={styles['message-label']}>No meta was selected!</div>
+                            </div>
+                        </DelayedRenderer>
+                        :
+                        metaDetails.metaItem === null ?
+                            <div className={styles['meta-message-container']}>
+                                <Image className={styles['image']} src={require('/images/empty.png')} alt={' '} />
                                 <div className={styles['message-label']}>No addons ware requested for this meta!</div>
                             </div>
                             :
-                            metaResources.every((metaResource) => metaResource.content.type === 'Err') ?
+                            metaDetails.metaItem.content.type === 'Err' ?
                                 <div className={styles['meta-message-container']}>
-                                    <Image className={styles['image']} src={'/images/empty.png'} alt={' '} />
+                                    <Image className={styles['image']} src={require('/images/empty.png')} alt={' '} />
                                     <div className={styles['message-label']}>No metadata was found!</div>
                                 </div>
                                 :
-                                selectedMetaResource !== null ?
+                                metaDetails.metaItem.content.type === 'Loading' ?
+                                    <MetaPreview.Placeholder className={styles['meta-preview']} />
+                                    :
                                     <React.Fragment>
                                         {
-                                            typeof selectedMetaResource.content.content.background === 'string' &&
-                                                selectedMetaResource.content.content.background.length > 0 ?
+                                            typeof metaDetails.metaItem.content.content.background === 'string' &&
+                                                metaDetails.metaItem.content.content.background.length > 0 ?
                                                 <div className={styles['background-image-layer']}>
                                                     <Image
                                                         className={styles['background-image']}
-                                                        src={selectedMetaResource.content.content.background}
+                                                        src={metaDetails.metaItem.content.content.background}
+                                                        renderFallback={renderBackgroundImageFallback}
                                                         alt={' '}
                                                     />
                                                 </div>
@@ -73,43 +136,62 @@ const MetaDetails = ({ urlParams }) => {
                                                 null
                                         }
                                         <MetaPreview
-                                            className={styles['meta-preview']}
-                                            name={selectedMetaResource.content.content.name + (selectedVideo !== null && typeof selectedVideo.title === 'string' ? ` - ${selectedVideo.title}` : '')}
-                                            logo={selectedMetaResource.content.content.logo}
-                                            runtime={selectedMetaResource.content.content.runtime}
-                                            releaseInfo={selectedMetaResource.content.content.releaseInfo}
-                                            released={selectedMetaResource.content.content.released}
+                                            className={classnames(styles['meta-preview'], 'animation-fade-in')}
+                                            name={metaDetails.metaItem.content.content.name}
+                                            logo={metaDetails.metaItem.content.content.logo}
+                                            runtime={metaDetails.metaItem.content.content.runtime}
+                                            releaseInfo={metaDetails.metaItem.content.content.releaseInfo}
+                                            released={metaDetails.metaItem.content.content.released}
                                             description={
-                                                selectedVideo !== null && typeof selectedVideo.overview === 'string' && selectedVideo.overview.length > 0 ?
-                                                    selectedVideo.overview
+                                                video !== null && typeof video.overview === 'string' && video.overview.length > 0 ?
+                                                    video.overview
                                                     :
-                                                    selectedMetaResource.content.content.description
+                                                    metaDetails.metaItem.content.content.description
                                             }
-                                            links={selectedMetaResource.content.content.links}
-                                            trailer={selectedMetaResource.content.content.trailer}
-                                            inLibrary={inLibrary}
-                                            toggleInLibrary={toggleInLibrary}
+                                            links={metaDetails.metaItem.content.content.links}
+                                            trailerStreams={metaDetails.metaItem.content.content.trailerStreams}
+                                            inLibrary={metaDetails.metaItem.content.content.inLibrary}
+                                            toggleInLibrary={metaDetails.metaItem.content.content.inLibrary ? removeFromLibrary : addToLibrary}
                                         />
                                     </React.Fragment>
-                                    :
-                                    <MetaPreview.Placeholder className={styles['meta-preview']} />
                 }
+                <div className={styles['spacing']} />
                 {
-                    streamsResourceRef !== null ?
+                    streamPath !== null ?
                         <StreamsList
                             className={styles['streams-list']}
-                            streamsResources={streamsResources}
+                            streams={metaDetails.streams}
+                            video={video}
                         />
                         :
-                        metaResourceRef !== null ?
+                        metaPath !== null ?
                             <VideosList
                                 className={styles['videos-list']}
-                                metaResource={selectedMetaResource}
+                                metaItem={metaDetails.metaItem}
+                                libraryItem={metaDetails.libraryItem}
+                                season={season}
+                                seasonOnSelect={seasonOnSelect}
+                                toggleNotifications={toggleNotifications}
                             />
                             :
                             null
                 }
             </div>
+            {
+                metaExtension !== null ?
+                    <ModalDialog
+                        className={styles['meta-extension-modal-container']}
+                        title={metaExtension.name}
+                        onCloseRequest={clearMetaExtension}>
+                        <iframe
+                            className={styles['meta-extension-modal-iframe']}
+                            sandbox={'allow-forms allow-scripts allow-same-origin'}
+                            src={metaExtension.url}
+                        />
+                    </ModalDialog>
+                    :
+                    null
+            }
         </div>
     );
 };
@@ -119,7 +201,20 @@ MetaDetails.propTypes = {
         type: PropTypes.string,
         id: PropTypes.string,
         videoId: PropTypes.string
-    })
+    }),
+    queryParams: PropTypes.instanceOf(URLSearchParams)
 };
 
-module.exports = MetaDetails;
+const MetaDetailsFallback = () => (
+    <div className={styles['metadetails-container']}>
+        <HorizontalNavBar
+            className={styles['nav-bar']}
+            backButton={true}
+            addonsButton={true}
+            fullscreenButton={true}
+            navMenu={true}
+        />
+    </div>
+);
+
+module.exports = withCoreSuspender(MetaDetails, MetaDetailsFallback);

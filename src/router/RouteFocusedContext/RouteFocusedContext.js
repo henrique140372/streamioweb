@@ -1,8 +1,8 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 
-const RouteFocusedContext = React.createContext(false);
+const RouteFocusedContext = React.createContext(true);
 
 RouteFocusedContext.displayName = 'RouteFocusedContext';
 

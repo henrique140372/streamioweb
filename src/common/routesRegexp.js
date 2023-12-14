@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const routesRegexp = {
     intro: {
@@ -26,12 +26,12 @@ const routesRegexp = {
         urlParamsNames: []
     },
     metadetails: {
-        regexp: /^\/metadetails\/([^/]*)\/([^/]*)(?:\/([^/]*))?$/,
+        regexp: /^\/(?:metadetails|detail)\/([^/]*)\/([^/]*)(?:\/([^/]*))?$/,
         urlParamsNames: ['type', 'id', 'videoId']
     },
     addons: {
-        regexp: /^\/addons(?:\/([^/]*)\/([^/]*)\/([^/]*))?$/,
-        urlParamsNames: ['transportUrl', 'catalogId', 'type']
+        regexp: /^\/addons(?:\/([^/]*)(?:\/([^/]*)\/([^/]*))?)?$/,
+        urlParamsNames: ['type', 'transportUrl', 'catalogId']
     },
     settings: {
         regexp: /^\/settings$/,
