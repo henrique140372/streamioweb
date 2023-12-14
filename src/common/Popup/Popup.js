@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
@@ -6,6 +6,19 @@ const classnames = require('classnames');
 const FocusLock = require('react-focus-lock').default;
 const { useRouteFocused } = require('stremio-router');
 const styles = require('./styles');
+
+const getAnchorElement = (element) => {
+    if (element === document.documentElement) {
+        return element;
+    }
+
+    const style = window.getComputedStyle(element);
+    if (style.overflowY.indexOf('auto') !== -1 || style.overflowY.indexOf('scroll') !== -1) {
+        return element;
+    }
+
+    return getAnchorElement(element.parentElement);
+};
 
 const Popup = ({ open, direction, renderLabel, renderMenu, dataset, onCloseRequest, ...props }) => {
     const routeFocused = useRouteFocused();
@@ -34,29 +47,38 @@ const Popup = ({ open, direction, renderLabel, renderMenu, dataset, onCloseReque
                             onCloseRequest(closeEvent);
                         }
                         break;
+                    case 'pointerdown':
+                        if (event.target !== document.documentElement && !labelRef.current.contains(event.target)) {
+                            onCloseRequest(closeEvent);
+                        }
+                        break;
                 }
             }
         };
         if (routeFocused && open) {
             window.addEventListener('keydown', onCloseEvent);
             window.addEventListener('mousedown', onCloseEvent);
+            window.addEventListener('pointerdown', onCloseEvent);
         }
         return () => {
             window.removeEventListener('keydown', onCloseEvent);
             window.removeEventListener('mousedown', onCloseEvent);
+            window.removeEventListener('pointerdown', onCloseEvent);
         };
     }, [routeFocused, open, onCloseRequest, dataset]);
     React.useLayoutEffect(() => {
         if (open) {
             const autoDirection = [];
-            const documentRect = document.documentElement.getBoundingClientRect();
+            const anchor = getAnchorElement(labelRef.current);
+            const anchorRect = anchor.getBoundingClientRect();
+
             const labelRect = labelRef.current.getBoundingClientRect();
             const menuRect = menuRef.current.getBoundingClientRect();
             const labelPosition = {
-                left: labelRect.left - documentRect.left,
-                top: labelRect.top - documentRect.top,
-                right: (documentRect.width + documentRect.left) - (labelRect.left + labelRect.width),
-                bottom: (documentRect.height + documentRect.top) - (labelRect.top + labelRect.height)
+                left: labelRect.left - anchorRect.left,
+                top: labelRect.top - anchorRect.top,
+                right: (anchorRect.width + anchorRect.left) - (labelRect.left + labelRect.width),
+                bottom: (anchorRect.height + anchorRect.top) - (labelRect.top + labelRect.height)
             };
 
             if (menuRect.height <= labelPosition.bottom) {
@@ -87,9 +109,9 @@ const Popup = ({ open, direction, renderLabel, renderMenu, dataset, onCloseReque
     return renderLabel({
         ...props,
         ref: labelRef,
-        className: styles['label-container'],
+        className: classnames(styles['label-container'], props.className, { 'active': open }),
         children: open ?
-            <FocusLock ref={menuRef} className={classnames(styles['menu-container'], styles[`menu-direction-${autoDirection}`], styles[`menu-direction-${direction}`])} autoFocus={false} lockProps={{ onMouseDown: menuOnMouseDown }}>
+            <FocusLock ref={menuRef} className={classnames(styles['menu-container'], { [styles[`menu-direction-${autoDirection}`]]: !direction }, { [styles[`menu-direction-${direction}`]]: direction })} autoFocus={false} lockProps={{ onMouseDown: menuOnMouseDown }}>
                 {renderMenu()}
             </FocusLock>
             :

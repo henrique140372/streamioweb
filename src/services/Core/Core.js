@@ -1,77 +1,32 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
-const EventEmitter = require('events');
-const { default: init, StremioCoreWeb } = require('@stremio/stremio-core-web');
+const EventEmitter = require('eventemitter3');
+const CoreTransport = require('./CoreTransport');
 
-function Core() {
+function Core(args) {
     let active = false;
     let error = null;
     let starting = false;
-    let stremio_core = null;
+    let transport = null;
+
     const events = new EventEmitter();
-    events.on('error', () => { });
 
-    function onStateChanged() {
-        events.emit('stateChanged');
-    }
-    function start() {
-        if (active || error instanceof Error || starting) {
-            return;
-        }
-
-        starting = true;
-        init()
-            .then(() => {
-                if (starting) {
-                    stremio_core = new StremioCoreWeb(({ name, args } = {}) => {
-                        if (active) {
-                            try {
-                                events.emit(name, args);
-                            } catch (e) {
-                                /* eslint-disable-next-line no-console */
-                                console.error(e);
-                            }
-                        }
-                    });
-                    active = true;
-                    onStateChanged();
-                }
-            })
-            .catch((e) => {
-                error = new Error('Unable to init stremio-core-web');
-                error.error = e;
-                onStateChanged();
-            })
-            .then(() => {
-                starting = false;
-            });
-    }
-    function stop() {
-        active = false;
+    function onTransportInit() {
+        active = true;
         error = null;
         starting = false;
-        stremio_core = null;
         onStateChanged();
     }
-    function on(name, listener) {
-        events.on(name, listener);
+    function onTransportError(args) {
+        console.error(args);
+        active = false;
+        error = new Error('Stremio Core Transport initialization failed', { cause: args });
+        starting = false;
+        onStateChanged();
+        transport = null;
     }
-    function off(name, listener) {
-        events.off(name, listener);
-    }
-    function dispatch(action, model) {
-        if (!active || typeof action === 'undefined') {
-            return false;
-        }
-
-        return stremio_core.dispatch(action, model);
-    }
-    function getState(model) {
-        if (!active) {
-            return null;
-        }
-
-        return stremio_core.get_state(model);
+    function onStateChanged() {
+        events.emit('stateChanged');
     }
 
     Object.defineProperties(this, {
@@ -88,17 +43,50 @@ function Core() {
             get: function() {
                 return error;
             }
+        },
+        starting: {
+            configurable: false,
+            enumerable: true,
+            get: function() {
+                return starting;
+            }
+        },
+        transport: {
+            configurable: false,
+            enumerable: true,
+            get: function() {
+                return transport;
+            }
         }
     });
 
-    this.start = start;
-    this.stop = stop;
-    this.on = on;
-    this.off = off;
-    this.dispatch = dispatch;
-    this.getState = getState;
+    this.start = function() {
+        if (active || error instanceof Error || starting) {
+            return;
+        }
 
-    Object.freeze(this);
+        starting = true;
+        transport = new CoreTransport(args);
+        transport.on('init', onTransportInit);
+        transport.on('error', onTransportError);
+        onStateChanged();
+    };
+    this.stop = function() {
+        active = false;
+        error = null;
+        starting = false;
+        onStateChanged();
+        if (transport !== null) {
+            transport.removeAllListeners();
+            transport = null;
+        }
+    };
+    this.on = function(name, listener) {
+        events.on(name, listener);
+    };
+    this.off = function(name, listener) {
+        events.off(name, listener);
+    };
 }
 
 module.exports = Core;

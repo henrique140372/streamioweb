@@ -1,42 +1,31 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
 const PropTypes = require('prop-types');
 const classnames = require('classnames');
-const Icon = require('stremio-icons/dom');
+const { useTranslation } = require('react-i18next');
+const filterInvalidDOMProps = require('filter-invalid-dom-props').default;
+const { default: Icon } = require('@stremio/stremio-icons/react');
 const Button = require('stremio/common/Button');
 const Image = require('stremio/common/Image');
 const Multiselect = require('stremio/common/Multiselect');
-const PlayIconCircleCentered = require('stremio/common/PlayIconCircleCentered');
 const useBinaryState = require('stremio/common/useBinaryState');
+const { ICON_FOR_TYPE } = require('stremio/common/CONSTANTS');
 const styles = require('./styles');
 
-const ICON_FOR_TYPE = new Map([
-    ['movie', 'ic_movies'],
-    ['series', 'ic_series'],
-    ['channel', 'ic_channels'],
-    ['tv', 'ic_tv'],
-    ['book', 'ic_book'],
-    ['game', 'ic_games'],
-    ['music', 'ic_music'],
-    ['adult', 'ic_adult'],
-    ['radio', 'ic_radio'],
-    ['podcast', 'ic_podcast'],
-    ['other', 'ic_movies'],
-]);
-
-const MetaItem = React.memo(({ className, type, name, poster, posterShape, playIcon, progress, options, deepLinks, dataset, optionOnSelect, ...props }) => {
+const MetaItem = React.memo(({ className, type, name, poster, posterShape, posterChangeCursor, progress, newVideos, options, deepLinks, dataset, optionOnSelect, onDismissClick, onPlayClick, ...props }) => {
+    const { t } = useTranslation();
     const [menuOpen, onMenuOpen, onMenuClose] = useBinaryState(false);
     const href = React.useMemo(() => {
         return deepLinks ?
             typeof deepLinks.player === 'string' ?
                 deepLinks.player
                 :
-                typeof deepLinks.meta_details_streams === 'string' ?
-                    deepLinks.meta_details_streams
+                typeof deepLinks.metaDetailsStreams === 'string' ?
+                    deepLinks.metaDetailsStreams
                     :
-                    typeof deepLinks.meta_details_videos === 'string' ?
-                        deepLinks.meta_details_videos
+                    typeof deepLinks.metaDetailsVideos === 'string' ?
+                        deepLinks.metaDetailsVideos
                         :
                         null
             :
@@ -65,18 +54,27 @@ const MetaItem = React.memo(({ className, type, name, poster, posterShape, playI
             });
         }
     }, [dataset, optionOnSelect]);
-    const renderPosterFallback = React.useMemo(() => () => (
+    const renderPosterFallback = React.useCallback(() => (
         <Icon
             className={styles['placeholder-icon']}
-            icon={ICON_FOR_TYPE.has(type) ? ICON_FOR_TYPE.get(type) : ICON_FOR_TYPE.get('other')}
+            name={ICON_FOR_TYPE.has(type) ? ICON_FOR_TYPE.get(type) : ICON_FOR_TYPE.get('other')}
         />
     ), [type]);
-    const renderMenuLabelContent = React.useMemo(() => () => (
-        <Icon className={styles['icon']} icon={'ic_more'} />
+    const renderMenuLabelContent = React.useCallback(() => (
+        <Icon className={styles['icon']} name={'more-vertical'} />
     ), []);
     return (
-        <Button title={name} href={href} {...props} className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${posterShape}`], { 'active': menuOpen })} onClick={metaItemOnClick}>
-            <div className={styles['poster-container']}>
+        <Button title={name} href={href} {...filterInvalidDOMProps(props)} className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${posterShape}`], { 'active': menuOpen })} onClick={metaItemOnClick}>
+            <div className={classnames(styles['poster-container'], { 'poster-change-cursor': posterChangeCursor })}>
+                {
+                    onDismissClick ?
+                        <div title={t('LIBRARY_RESUME_DISMISS')} className={styles['dismiss-icon-layer']} onClick={onDismissClick}>
+                            <Icon className={styles['dismiss-icon']} name={'close'} />
+                            <div className={styles['dismiss-icon-backdrop']} />
+                        </div>
+                        :
+                        null
+                }
                 <div className={styles['poster-image-layer']}>
                     <Image
                         className={styles['poster-image']}
@@ -86,9 +84,11 @@ const MetaItem = React.memo(({ className, type, name, poster, posterShape, playI
                     />
                 </div>
                 {
-                    playIcon ?
-                        <div className={styles['play-icon-layer']}>
-                            <PlayIconCircleCentered className={styles['play-icon']} />
+                    onPlayClick ?
+                        <div title={t('CONTINUE_WATCHING')} className={styles['play-icon-layer']} onClick={onPlayClick}>
+                            <Icon className={styles['play-icon']} name={'play'} />
+                            <div className={styles['play-icon-outer']} />
+                            <div className={styles['play-icon-background']} />
                         </div>
                         :
                         null
@@ -97,6 +97,22 @@ const MetaItem = React.memo(({ className, type, name, poster, posterShape, playI
                     progress > 0 ?
                         <div className={styles['progress-bar-layer']}>
                             <div className={styles['progress-bar']} style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%` }} />
+                            <div className={styles['progress-bar-background']} />
+                        </div>
+                        :
+                        null
+                }
+                {
+                    newVideos > 0 ?
+                        <div className={styles['new-videos']}>
+                            <div className={styles['layer']} />
+                            <div className={styles['layer']} />
+                            <div className={styles['layer']}>
+                                <Icon className={styles['icon']} name={'add'} />
+                                <div className={styles['label']}>
+                                    {newVideos}
+                                </div>
+                            </div>
                         </div>
                         :
                         null
@@ -139,17 +155,20 @@ MetaItem.propTypes = {
     name: PropTypes.string,
     poster: PropTypes.string,
     posterShape: PropTypes.oneOf(['poster', 'landscape', 'square']),
-    playIcon: PropTypes.bool,
+    posterChangeCursor: PropTypes.bool,
     progress: PropTypes.number,
+    newVideos: PropTypes.number,
     options: PropTypes.array,
     deepLinks: PropTypes.shape({
-        meta_details_videos: PropTypes.string,
-        meta_details_streams: PropTypes.string,
+        metaDetailsVideos: PropTypes.string,
+        metaDetailsStreams: PropTypes.string,
         player: PropTypes.string
     }),
     dataset: PropTypes.object,
     optionOnSelect: PropTypes.func,
-    onClick: PropTypes.func
+    onDismissClick: PropTypes.func,
+    onPlayClick: PropTypes.func,
+    onClick: PropTypes.func,
 };
 
 module.exports = MetaItem;

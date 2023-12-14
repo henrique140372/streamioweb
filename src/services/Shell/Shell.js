@@ -1,47 +1,33 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
-const EventEmitter = require('events');
+const EventEmitter = require('eventemitter3');
+const ShellTransport = require('./ShellTransport');
 
 function Shell() {
     let active = false;
     let error = null;
     let starting = false;
+    let transport = null;
+
     const events = new EventEmitter();
-    events.on('error', () => { });
 
-    function onStateChanged() {
-        events.emit('stateChanged');
-    }
-    function start() {
-        if (active || error instanceof Error || starting) {
-            return;
-        }
-
-        starting = true;
-        setTimeout(() => {
-            error = new Error('Unable to init stremio shell');
-            starting = false;
-            onStateChanged();
-        });
-    }
-    function stop() {
-        active = false;
+    function onTransportInit() {
+        active = true;
         error = null;
         starting = false;
         onStateChanged();
     }
-    function on(name, listener) {
-        events.on(name, listener);
+    function onTransportInitError(err) {
+        console.error(err);
+        active = false;
+        error = new Error(err);
+        starting = false;
+        onStateChanged();
+        transport = null;
     }
-    function off(name, listener) {
-        events.off(name, listener);
-    }
-    function dispatch() {
-        if (!active) {
-            return;
-        }
 
-        // TODO
+    function onStateChanged() {
+        events.emit('stateChanged');
     }
 
     Object.defineProperties(this, {
@@ -58,16 +44,47 @@ function Shell() {
             get: function() {
                 return error;
             }
+        },
+        starting: {
+            configurable: false,
+            enumerable: true,
+            get: function() {
+                return starting;
+            }
+        },
+        transport: {
+            configurable: false,
+            enumerable: true,
+            get: function() {
+                return transport;
+            }
         }
     });
 
-    this.start = start;
-    this.stop = stop;
-    this.on = on;
-    this.off = off;
-    this.dispatch = dispatch;
+    this.start = function() {
+        if (active || error instanceof Error || starting) {
+            return;
+        }
 
-    Object.freeze(this);
+        active = false;
+        starting = true;
+        transport = new ShellTransport();
+        transport.on('init', onTransportInit);
+        transport.on('init-error', onTransportInitError);
+        onStateChanged();
+    };
+    this.stop = function() {
+        active = false;
+        error = null;
+        starting = false;
+        onStateChanged();
+    };
+    this.on = function(name, listener) {
+        events.on(name, listener);
+    };
+    this.off = function(name, listener) {
+        events.off(name, listener);
+    };
 }
 
 module.exports = Shell;

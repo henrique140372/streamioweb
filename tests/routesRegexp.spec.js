@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
 const routesRegexp = require('../src/common/routesRegexp');
 
@@ -277,8 +277,8 @@ describe('routesRegexp', () => {
         });
 
         it('not match /addons/', async () => {
-            expect('/addons/'.match(routesRegexp.addons.regexp))
-                .toBe(null);
+            expect(Array.from('/addons/'.match(routesRegexp.addons.regexp)))
+                .toEqual(['/addons/', '', undefined, undefined]);
         });
 
         it('not match /addons//', async () => {
@@ -292,8 +292,8 @@ describe('routesRegexp', () => {
         });
 
         it('not match /addons/1', async () => {
-            expect('/addons/1'.match(routesRegexp.addons.regexp))
-                .toBe(null);
+            expect(Array.from('/addons/1'.match(routesRegexp.addons.regexp)))
+                .toEqual(['/addons/1', '1', undefined, undefined]);
         });
 
         it('not match /addons/1/', async () => {

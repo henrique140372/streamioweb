@@ -1,6 +1,6 @@
-// Copyright (C) 2017-2020 Smart code 203358507
+// Copyright (C) 2017-2023 Smart code 203358507
 
-@import (reference) '~stremio-colors/dist/less/stremio-colors.less';
+@import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 
 :import('~stremio/common/Slider/styles.less') {
     active-slider-within: active-slider-within;
@@ -11,6 +11,8 @@
     nav-bar-title: title;
     nav-bar-icon: icon;
 }
+
+@background-color: rgba(0, 0, 0, 1);
 
 html:not(.active-slider-within) {
     .player-container.immersed {
@@ -28,7 +30,7 @@ html:not(.active-slider-within) {
     z-index: 0;
     width: 100%;
     height: 100%;
-    background-color: @color-background-dark5;
+    background-color: @background-color;
 
     .layer {
         position: absolute;
@@ -40,17 +42,62 @@ html:not(.active-slider-within) {
 
         &.error-layer {
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            background-color: @background-color;
 
             .error-label {
                 flex: 0 1 auto;
                 padding: 0 8rem;
                 max-height: 4.8em;
                 font-size: 2rem;
-                color: @color-surface-light5-90;
+                color: var(--primary-foreground-color);
                 text-align: center;
+            }
+
+            .error-sub {
+                flex: 0 1 auto;
+                padding: 0 2rem;
+                max-height: 4.8em;
+                font-size: 1.3rem;
+                margin-top: 0.8rem;
+                color: var(--primary-foreground-color);
+                text-align: center;            
+            }
+
+            .playlist-button {
+                flex: none;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                height: 3.5rem;
+                border-radius: 3.5rem;
+                margin-top: 1.5rem;
+                padding: 0 2rem;
+                background-color: var(--secondary-accent-color);
+
+                &:hover {
+                    outline: var(--focus-outline-size) solid var(--secondary-accent-color);
+                    background-color: transparent;
+                }
+
+                .icon {
+                    flex: none;
+                    width: 1.5rem;
+                    height: 1.5rem;
+                    margin-right: 1rem;
+                    color: var(--primary-foreground-color);
+                }
+
+                .label {
+                    flex: 1;
+                    max-height: 2.4em;
+                    font-size: 1.1rem;
+                    font-weight: 500;
+                    color: var(--primary-foreground-color);
+                    text-align: center;
+                }
             }
         }
 
@@ -75,12 +122,12 @@ html:not(.active-slider-within) {
                 }
 
                 .nav-bar-icon {
-                    fill: @color-surface-light5;
+                    color: var(--primary-foreground-color);
                 }
             }
 
             .nav-bar-title {
-                color: @color-surface-light5;
+                color: var(--primary-foreground-color);
             }
         }
 
@@ -106,9 +153,11 @@ html:not(.active-slider-within) {
             bottom: 8rem;
             max-height: calc(100% - 13.5rem);
             max-width: calc(100% - 4rem);
-            background-color: @color-background-dark1;
+            border-radius: var(--border-radius);
+            background-color: var(--modal-background-color);
             box-shadow: 0 1.35rem 2.7rem @color-background-dark5-40,
                 0 1.1rem 0.85rem @color-background-dark5-20;
+            backdrop-filter: blur(15px);
             overflow: auto;
         }
     }
